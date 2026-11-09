@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "
 import { BaselinePanel } from "@/components/baseline-panel";
 import { DigitalReadout } from "@/components/digital-readout";
 import { MethodologyDialog } from "@/components/methodology-dialog";
-import { PriceWheel } from "@/components/price-wheel";
+import { PriceWheel, type PriceWheelHandle } from "@/components/price-wheel";
 import { Button } from "@/components/ui/button";
 import { Wordmark } from "@/components/wordmark";
 import { OFFLINE_EXAMPLE } from "@/lib/example";
@@ -126,6 +126,13 @@ export function WheelApp({
   const ibitRef = useRef(baselineIbit);
   const degreesRef = useRef(degrees);
   const dirtyRef = useRef(false);
+  const wheelRef = useRef<PriceWheelHandle>(null);
+  const lastNudgeAt = useRef(0);
+
+  const stopWheel = useCallback((nextDegrees: number) => {
+    wheelRef.current?.cancelMotion();
+    degreesRef.current = nextDegrees;
+  }, []);
 
   useEffect(() => {
     btcRef.current = baselineBtc;
@@ -177,7 +184,8 @@ export function WheelApp({
           setBaselineIbit(ibit);
           setBtcInput(formatEditable(btc));
           setIbitInput(formatEditable(ibit));
-          degreesRef.current = 0;
+          stopWheel(0);
+          setSettle(false);
           setDegrees(0);
           setProvenance({
             kind: "market",
@@ -208,7 +216,7 @@ export function WheelApp({
       }
     })();
     return () => controller.abort();
-  }, [initialScenario]);
+  }, [initialScenario, stopWheel]);
 
   useEffect(() => {
     if (baselineBtc == null || baselineIbit == null) return;
@@ -222,19 +230,28 @@ export function WheelApp({
 
   const onDelta = useCallback((delta: number) => {
     const baseline = btcRef.current;
-    if (baseline == null) return;
-    const next = applyDialDelta(baseline, degreesRef.current, delta);
+    const current = degreesRef.current;
+    if (baseline == null) return current;
+    const next = applyDialDelta(baseline, current, delta);
     degreesRef.current = next;
     setSettle(false);
     setDegrees(next);
+    return next;
   }, []);
 
   const onNudge = useCallback(
     (percent: number) => {
       const baseline = btcRef.current;
       if (baseline == null) return;
+      const now = performance.now();
+      const burst = now - lastNudgeAt.current < 90;
+      lastNudgeAt.current = now;
       const next = applyPercentNudge(baseline, degreesRef.current, percent);
-      setSettle(true);
+      degreesRef.current = next;
+      const reduce =
+        typeof window.matchMedia === "function" &&
+        window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      setSettle(!burst && !reduce);
       setDegrees(next);
       announce(next);
     },
@@ -242,11 +259,11 @@ export function WheelApp({
   );
 
   const onReset = useCallback(() => {
-    degreesRef.current = 0;
+    stopWheel(0);
     setSettle(false);
     setDegrees(0);
     announce(0);
-  }, [announce]);
+  }, [announce, stopWheel]);
 
   const onCommit = useCallback(() => {
     announce(degreesRef.current);
@@ -264,24 +281,28 @@ export function WheelApp({
     setBaselineIbit(ibitValid.value);
     setBtcInput(formatEditable(btcValid.value));
     setIbitInput(formatEditable(ibitValid.value));
+    stopWheel(0);
+    setSettle(false);
     setDegrees(0);
     dirtyRef.current = false;
     setProvenance(classifyBaselines(btcValid.value, ibitValid.value, lastQuotes));
     setQuoteError(null);
-  }, [btcInput, ibitInput, lastQuotes]);
+  }, [btcInput, ibitInput, lastQuotes, stopWheel]);
 
   const onExample = useCallback(() => {
     setBaselineBtc(OFFLINE_EXAMPLE.btc);
     setBaselineIbit(OFFLINE_EXAMPLE.ibit);
     setBtcInput(formatEditable(OFFLINE_EXAMPLE.btc));
     setIbitInput(formatEditable(OFFLINE_EXAMPLE.ibit));
+    stopWheel(0);
+    setSettle(false);
     setDegrees(0);
     setBtcError(null);
     setIbitError(null);
     dirtyRef.current = false;
     setProvenance({ kind: "example" });
     setQuoteError(null);
-  }, []);
+  }, [stopWheel]);
 
   const onReload = useCallback(async () => {
     setChecking(true);
@@ -306,6 +327,8 @@ export function WheelApp({
       setBaselineIbit(ibit);
       setBtcInput(formatEditable(btc));
       setIbitInput(formatEditable(ibit));
+      stopWheel(0);
+      setSettle(false);
       setDegrees(0);
       setBtcError(null);
       setIbitError(null);
@@ -316,7 +339,7 @@ export function WheelApp({
     } finally {
       setChecking(false);
     }
-  }, []);
+  }, [stopWheel]);
 
   const onBtcInput = useCallback((value: string) => {
     dirtyRef.current = true;
@@ -394,6 +417,7 @@ export function WheelApp({
         />
         <div className="area-wheel flex flex-col items-center gap-4" data-testid="wheel-column">
           <PriceWheel
+            ref={wheelRef}
             degrees={degrees}
             disabled={!ready}
             settle={settle}

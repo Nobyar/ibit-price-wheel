@@ -181,9 +181,25 @@
   fill: rgba(61, 255, 154, 0.12);
 }
 
+.dial,
+.dial * {
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+
+.dial {
+  overscroll-behavior: none;
+}
+
+html.dial-dragging,
+html.dial-dragging body {
+  overscroll-behavior: none;
+}
+
 .knob-rotor {
-  transform-box: view-box;
-  transform-origin: 200px 200px;
+  transform-origin: center;
 }
 
 @media (prefers-reduced-motion: reduce) {
