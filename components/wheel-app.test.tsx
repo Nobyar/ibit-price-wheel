@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { WheelApp } from "@/components/wheel-app";
@@ -149,5 +149,66 @@ describe("IBIT Price Wheel", () => {
     expect(screen.getByText(/No market-data vendor supplied/)).toBeInTheDocument();
     expect(screen.getByTestId("btc-readout")).toHaveTextContent("$100,000.00");
     expect(screen.getByTestId("ibit-readout")).toHaveTextContent("$50.00");
+  });
+
+  it("drags through multiple turns, including the branch cut, and stores the scenario", async () => {
+    const rect = vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockReturnValue({
+      x: 0,
+      y: 0,
+      left: 0,
+      top: 0,
+      right: 200,
+      bottom: 200,
+      width: 200,
+      height: 200,
+      toJSON() {
+        return {};
+      },
+    });
+    render(
+      <WheelApp
+        initialScenario={{ kind: "ready", btc: 100000, ibit: 50, sim: 100000 }}
+        ignoredLinkReason={null}
+      />,
+    );
+    const dial = screen.getByTestId("dial");
+    const point = (angleDeg: number) => {
+      const rad = (angleDeg * Math.PI) / 180;
+      return { clientX: 100 + Math.cos(rad) * 80, clientY: 100 + Math.sin(rad) * 80 };
+    };
+    const spin = (turns: number) => {
+      fireEvent.pointerDown(dial, { button: 0, buttons: 1, pointerId: 7, timeStamp: 1000, ...point(0) });
+      const steps = turns * 36;
+      for (let step = 1; step <= steps; step += 1) {
+        fireEvent.pointerMove(window, {
+          button: 0,
+          buttons: 1,
+          pointerId: 7,
+          pointerType: "mouse",
+          timeStamp: 1000,
+          ...point(step * 10),
+        });
+      }
+      fireEvent.pointerUp(window, {
+        button: 0,
+        buttons: 0,
+        pointerId: 7,
+        pointerType: "mouse",
+        timeStamp: 1000,
+        ...point(0),
+      });
+    };
+    spin(1);
+    expect(screen.getByTestId("change-percent")).toHaveTextContent("+10.00%");
+    expect(screen.getByTestId("btc-readout")).toHaveTextContent("$110,000.00");
+    expect(screen.getByTestId("ibit-readout")).toHaveTextContent("$55.00");
+    spin(1);
+    expect(screen.getByTestId("change-percent")).toHaveTextContent("+21.00%");
+    await waitFor(() => {
+      expect(window.location.search).toContain("btc=100000");
+      expect(window.location.search).toContain("ibit=50");
+      expect(window.location.search).toContain("sim=121000");
+    });
+    rect.mockRestore();
   });
 });
