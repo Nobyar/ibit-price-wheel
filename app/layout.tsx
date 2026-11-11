@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
-import { DEFAULT_DESCRIPTION, getMetadataBase } from "@/lib/site";
+import { DEFAULT_DESCRIPTION, getMetadataBase, socialCard } from "@/lib/site";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -21,18 +21,10 @@ export const metadata: Metadata = {
   },
   description: DEFAULT_DESCRIPTION,
   applicationName: "IBIT Price Wheel",
-  openGraph: {
+  ...socialCard({
     title: "IBIT Price Wheel",
     description: DEFAULT_DESCRIPTION,
-    type: "website",
-    siteName: "IBIT Price Wheel",
-    locale: "en_US",
-  },
-  twitter: {
-    card: "summary_large_image",
-    title: "IBIT Price Wheel",
-    description: DEFAULT_DESCRIPTION,
-  },
+  }),
   robots: { index: true, follow: true },
   appleWebApp: {
     title: "IBIT Wheel",
