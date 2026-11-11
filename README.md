@@ -28,7 +28,7 @@ The app is a standard Next.js App Router project and is ready for Vercel.
 
 1. Import the repository. Framework preset: Next.js. Root directory: the repository root.
 2. Use Node.js 20.9 or newer. Build command: `npm run build`. No install overrides.
-3. Leave environment variables empty. Optionally set `NEXT_PUBLIC_SITE_URL` to the public `https` origin so Open Graph and canonical links use that host. If it is unset, production uses `VERCEL_URL`.
+3. Leave environment variables empty. Optionally set `NEXT_PUBLIC_SITE_URL` to the public `https` origin so Open Graph links use that host. If it is unset, those links use `https://ibit-price-wheel.vercel.app`. The share image is `public/og.png`, served at `/og.png`.
 4. The server route `/api/quotes` needs outbound HTTPS to the quote hosts below. There is no secret to provision.
 
 Quote responses are cached for about a minute (`cacheLife` stale 30s, revalidate 60s, expire 300s) plus a short `Cache-Control` header. A failed check is not replaced with a made-up price.
